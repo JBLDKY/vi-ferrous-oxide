@@ -13,59 +13,15 @@ enum RopeNode {
 }
 
 #[derive(Debug, Clone, Default)]
-struct Rope {
+pub struct Rope {
     root: Option<RopeNode>,
 }
 
 impl Rope {
-    // pub fn delete(&mut self, start_idx: usize, mut end_idx: usize) {
-    //     if end_idx <= start_idx {
-    //         return;
-    //     }
-    //
-    //     if end_idx > self.len() {
-    //         end_idx = self.len();
-    //     }
-    //
-    //     if let Some(node) = self.root.take() {
-    //         self.root = Some(Rope::delete_at_node(node, start_idx, end_idx));
-    //     }
-    // }
-
-    // fn delete_at_node(node: RopeNode, start_idx: usize, end_idx: usize) -> RopeNode {
-    //     match node {
-    //         RopeNode::Leaf(s) => {
-    //             if start_idx >= s.len() {
-    //                 RopeNode::Leaf(s)
-    //             } else {
-    //                 let new_string = [&s[..start_idx], &s[end_idx..]].concat();
-    //                 RopeNode::Leaf(new_string)
-    //             }
-    //         }
-    //
-    //         RopeNode::Branch(left, right, left_length) => {
-    //             if end_idx <= left_length {
-    //                 // Deletion starts and finishes on the left node
-    //                 let new_left = Box::new(Rope::delete_at_node(*left, start_idx, end_idx));
-    //                 RopeNode::Branch(new_left, right, left_length - (end_idx - start_idx))
-    //             } else if start_idx >= left_length {
-    //                 // Deletion doesn't start on the left node
-    //                 let new_right = Box::new(Rope::delete_at_node(
-    //                     *right,
-    //                     start_idx - left_length,
-    //                     end_idx - left_length,
-    //                 ));
-    //                 RopeNode::Branch(left, new_right, left_length)
-    //             } else {
-    //                 // Deletion range spans across left and right children
-    //                 let new_left = Box::new(Rope::delete_at_node(*left, start_idx, left_length));
-    //                 let new_right =
-    //                     Box::new(Rope::delete_at_node(*right, 0, end_idx - left_length));
-    //                 RopeNode::Branch(new_left, new_right, left_length - (end_idx - start_idx))
-    //             }
-    //         }
-    //     }
-    // }
+    pub fn append(&mut self, text: &str) -> Self {
+        let new_rope = Rope::from_str(text);
+        Rope::concat(self.clone(), new_rope)
+    }
 
     /// Concatenate two ropes
     ///
@@ -285,4 +241,3 @@ impl Rope {
         }
     }
 }
-

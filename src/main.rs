@@ -15,6 +15,9 @@ use std::time::Duration;
 
 use std::io::{stdout, Stdout, Write};
 
+#[cfg(test)]
+mod test_rope;
+
 #[inline]
 fn refresh(stdout: &mut Stdout, text: &Vec<char>) {
     execute!(stdout, Clear(ClearType::All), MoveTo(0, 0)).ok();
