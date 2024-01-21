@@ -11,15 +11,18 @@ use crossterm::{
     execute,
     terminal::{
         disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
-        LeaveAlternateScreen,
+        LeaveAlternateScreen, SetTitle,
     },
 };
 use rope::Rope;
+use std::env;
+use std::fs::File;
+use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
 use std::time::Duration;
 
-use std::io::{stdout, Stdout, Write};
+use std::io::{stdout, Read, Stdout, Write};
 
 #[cfg(test)]
 mod test_rope;
@@ -40,10 +43,24 @@ fn refresh(stdout: &mut Stdout, text: &mut Rope) {
     let _ = stdout.flush();
 }
 
-fn launch(stdout: &mut Stdout) -> Result<(), anyhow::Error> {
+fn launch(
+    stdout: &mut Stdout,
+    rope: Option<Rope>,
+    mut file_name: Option<&Path>,
+) -> Result<(), anyhow::Error> {
     enable_raw_mode()?;
 
+    if file_name.is_none() {
+        file_name = Some(Path::new("new_file.txt"));
+    }
+
     let mut text: Rope = Rope::new();
+
+    if let Some(rope) = rope {
+        text = rope;
+    }
+
+    refresh(stdout, &mut text);
 
     loop {
         if poll(Duration::from_millis(100))? {
@@ -75,7 +92,8 @@ fn launch(stdout: &mut Stdout) -> Result<(), anyhow::Error> {
                     }
 
                     KeyCode::F(1) => {
-                        dbg!(&text.to_string().unwrap());
+                        let mut file = File::create(&file_name.unwrap())?;
+                        let _ = file.write(text.to_string().unwrap().as_bytes());
                     }
 
                     _ => (),
@@ -99,7 +117,37 @@ fn main() -> Result<(), std::io::Error> {
         EnterAlternateScreen
     )?;
 
-    let _ = launch(&mut stdout);
+    let args: Vec<String> = env::args().collect();
+
+    let mut file_name = None;
+    if let Some(p) = args.last() {
+        let path = Path::new(p);
+        if path.exists() {
+        } else if !path.exists() {
+            File::create(path)?;
+        }
+        file_name = Some(path)
+    };
+
+    execute!(
+        stdout,
+        DisableBlinking,
+        SetTitle(args.last().unwrap()),
+        MoveTo(0, 0),
+        Clear(ClearType::All),
+        EnterAlternateScreen
+    )?;
+
+    if file_name.is_some() {
+        let mut file = File::open(file_name.unwrap())?;
+        let mut text = String::new();
+        let _ = file.read_to_string(&mut text);
+        let opened_file = Rope::from_str(&text);
+
+        let _ = launch(&mut stdout, Some(opened_file), file_name.clone());
+    } else {
+        let _ = launch(&mut stdout, None, None);
+    }
 
     execute!(stdout, LeaveAlternateScreen)
 }
