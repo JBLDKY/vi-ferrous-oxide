@@ -1,11 +1,14 @@
 #![allow(dead_code)]
 
-const MAX_LEAF_SIZE: usize = 8;
+use env_logger::Logger;
+use log::debug;
+
+const MAX_LEAF_SIZE: usize = 2;
 
 #[derive(Debug, Clone)]
 enum RopeNode {
     Leaf(String),
-    // Left, Right, Length of left node
+    // Left, Right, Length of the sum of left subnode strings.
     Branch(Box<RopeNode>, Box<RopeNode>, usize),
 }
 
@@ -58,17 +61,33 @@ impl Rope {
     //                 let new_left = Box::new(Rope::delete_at_node(*left, start_idx, left_length));
     //                 let new_right =
     //                     Box::new(Rope::delete_at_node(*right, 0, end_idx - left_length));
-    //                 dbg!(&new_left);
-    //                 dbg!(&new_right);
-    //                 dbg!(&left_length);
-    //                 dbg!(&start_idx);
-    //                 dbg!(&end_idx);
     //                 RopeNode::Branch(new_left, new_right, left_length - (end_idx - start_idx))
     //             }
     //         }
     //     }
     // }
-    //
+
+    /// Concatenate two ropes
+    ///
+    /// Probably one of the few functions that do not require recursion
+    pub fn concat(rope1: Rope, rope2: Rope) -> Rope {
+        match (rope1.root, rope2.root) {
+            (None, None) => Rope::new(),
+            (Some(node), None) | (None, Some(node)) => Rope { root: Some(node) },
+            (Some(left), Some(right)) => {
+                let left_length = Self::traverse_and_get_len(&left);
+                Rope {
+                    root: Some(RopeNode::Branch(
+                        Box::new(left),
+                        Box::new(right),
+                        left_length,
+                    )),
+                }
+            }
+        }
+    }
+
+    /// Split a rope into two ropes at the given index.
     pub fn split(self, mut idx: usize) -> (Rope, Rope) {
         if self.len() < idx {
             idx = self.len()
@@ -90,6 +109,7 @@ impl Rope {
         }
     }
 
+    /// recursively find index and then split
     fn split_at_node(node: RopeNode, idx: usize) -> (RopeNode, RopeNode) {
         match node {
             RopeNode::Leaf(s) => {
@@ -101,7 +121,7 @@ impl Rope {
             }
 
             RopeNode::Branch(left, right, left_length) => {
-                if idx < left_length {
+                if idx <= left_length {
                     let (new_left, split_off) = Rope::split_at_node(*left, idx);
                     (
                         new_left,
@@ -156,6 +176,15 @@ impl Rope {
         }
     }
 
+    /// Recursively get the length of a node and its child nodes
+    fn traverse_and_get_len(node: &RopeNode) -> usize {
+        match node {
+            RopeNode::Leaf(s) => s.len(),
+            RopeNode::Branch(left, right, _) => {
+                Self::traverse_and_get_len(left) + Self::traverse_and_get_len(right)
+            }
+        }
+    }
     /// Get the string representation of the rope
     pub fn to_string(&self) -> Option<String> {
         // Recursively traverse the nodes and return the text of each node
@@ -183,16 +212,6 @@ impl Rope {
         self.root.as_ref().map_or(0, Self::traverse_and_get_len)
     }
 
-    /// Recursively get the length of a node and its child nodes
-    fn traverse_and_get_len(node: &RopeNode) -> usize {
-        match node {
-            RopeNode::Leaf(s) => s.len(),
-            RopeNode::Branch(left, right, _) => {
-                Self::traverse_and_get_len(left) + Self::traverse_and_get_len(right)
-            }
-        }
-    }
-
     pub fn index(&self, idx: usize) -> Option<char> {
         self.root
             .as_ref()
@@ -202,15 +221,12 @@ impl Rope {
     // Recursively find the character at the given index
     fn traverse_and_find_nth(node: &RopeNode, idx: usize) -> Option<char> {
         match node {
-            // if we hit a Leaf, return the nth character
             RopeNode::Leaf(s) => s.chars().nth(idx),
-
-            // if we hit a branch we might have to deduct from idx
             RopeNode::Branch(left, right, left_length) => {
                 if idx < *left_length {
                     Self::traverse_and_find_nth(left, idx)
                 } else {
-                    Self::traverse_and_find_nth(right, idx - left_length)
+                    Self::traverse_and_find_nth(right, idx - *left_length)
                 }
             }
         }
@@ -257,7 +273,6 @@ impl Rope {
     }
 }
 
-// Further functions and implementations
 #[cfg(test)]
 #[test]
 fn test_rope_length() {
@@ -274,11 +289,25 @@ fn test_rope_init() {
 }
 
 #[test]
-fn test_index() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
+fn test_small() {
+    let s = "abc";
     let rope = Rope::from_str(s);
-    let res = rope.index(21);
-    assert_eq!('t', res.unwrap());
+
+    let res = rope.index(0);
+    assert_eq!('a', res.unwrap());
+
+    let res = rope.index(1);
+    assert_eq!('b', res.unwrap());
+
+    let res = rope.index(2);
+    assert_eq!('c', res.unwrap());
+}
+
+#[test]
+fn test_index() {
+    let s = "123456789";
+    let rope = Rope::from_str(s);
+    assert_eq!('4', rope.index(3).unwrap());
 }
 
 #[test]
@@ -352,22 +381,21 @@ fn test_at_zero() {
         right.to_string().unwrap(),
         "hi there hello world there once was a kitten that had a chocolate ice cream",
     );
-
     assert_eq!(left.to_string().unwrap(), "",);
 }
 
 // #[test]
 // fn test_delete() {
-// let s = "hello world";
-// let mut rope = Rope::from_str(s);
-// rope.delete(5, 100);
-// assert_eq!("hello", rope.to_string().unwrap());
+//     let s = "hello world";
+//     let mut rope = Rope::from_str(s);
+//     rope.delete(5, 100);
+//     assert_eq!("hello", rope.to_string().unwrap());
 //
-// let s = "hello world";
-// let mut rope = Rope::from_str(s);
-// rope.delete(5, 7);
-// assert_eq!("helloorld", rope.to_string().unwrap());
-
+//     let s = "hello world";
+//     let mut rope = Rope::from_str(s);
+//     rope.delete(5, 7);
+//     assert_eq!("helloorld", rope.to_string().unwrap());
+//
 //     let s = "hello world";
 //     let mut rope = Rope::from_str(s);
 //     rope.delete(0, 5);

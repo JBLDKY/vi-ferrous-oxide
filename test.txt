@@ -1,0 +1,8 @@
+
+running 2 tests
+"hi there hello world there once was a kitten that had a chocolate ice cream"
+test rope::test_index ... ok
+test rope::test_index_s ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
