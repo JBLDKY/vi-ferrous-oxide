@@ -1,8 +1,13 @@
 #![allow(unused_imports)]
+#![feature(iter_collect_into)]
 mod rope;
+use crossterm::cursor::MoveToPreviousLine;
 use crossterm::event::{poll, read, Event, KeyCode, KeyEvent};
+use crossterm::style::{self, style, Attribute, Color, Print, PrintStyledContent, Stylize};
 use crossterm::{
-    cursor::{DisableBlinking, MoveTo, MoveToColumn, MoveToNextLine, RestorePosition},
+    cursor::{
+        DisableBlinking, MoveTo, MoveToColumn, MoveToNextLine, RestorePosition, SavePosition,
+    },
     execute,
     terminal::{
         disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
@@ -23,8 +28,13 @@ mod test_rope;
 fn refresh(stdout: &mut Stdout, text: &mut Rope) {
     execute!(stdout, Clear(ClearType::All), MoveTo(0, 0)).ok();
 
-    for char in text.to_string().iter() {
-        print!("{}", char);
+    for char in text.to_string().unwrap().chars() {
+        if &char == &'\n' {
+            let _ = execute!(stdout, MoveToNextLine(1));
+            continue;
+        };
+
+        execute!(stdout, Print(&char));
     }
 
     let _ = stdout.flush();
@@ -48,20 +58,25 @@ fn launch(stdout: &mut Stdout) -> Result<(), anyhow::Error> {
 
                     KeyCode::Enter => {
                         text.append("\n");
-                        execute!(stdout, MoveToNextLine(1))?;
                         refresh(stdout, &mut text);
                     }
 
-                    KeyCode::Tab => {
-                        dbg!(&text);
+                    KeyCode::Esc => {
+                        break;
                     }
 
                     KeyCode::Backspace => {
-                        text.delete(text.len(), text.len());
+                        if text.len() == 0 {
+                            continue;
+                        }
+
+                        text.delete(text.len() - 1, text.len());
                         refresh(stdout, &mut text);
                     }
 
-                    KeyCode::Esc => break,
+                    KeyCode::F(1) => {
+                        dbg!(&text.to_string().unwrap());
+                    }
 
                     _ => (),
                 }
@@ -75,6 +90,7 @@ fn launch(stdout: &mut Stdout) -> Result<(), anyhow::Error> {
 
 fn main() -> Result<(), std::io::Error> {
     let mut stdout = stdout();
+
     execute!(
         stdout,
         DisableBlinking,
