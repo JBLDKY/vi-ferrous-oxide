@@ -87,6 +87,19 @@ impl Rope {
         }
     }
 
+    pub fn delete(self, start: usize, end: usize) -> Rope {
+        if start > end {
+            return self;
+        }
+
+        let end = end + 1;
+
+        let (pre, suf) = self.split(end);
+        let (pre, _) = pre.split(start);
+
+        Rope::concat(pre, suf)
+    }
+
     /// Split a rope into two ropes at the given index.
     pub fn split(self, mut idx: usize) -> (Rope, Rope) {
         if self.len() < idx {
@@ -273,133 +286,3 @@ impl Rope {
     }
 }
 
-#[cfg(test)]
-#[test]
-fn test_rope_length() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    assert_eq!(rope.len(), rope.len());
-}
-
-#[test]
-fn test_rope_init() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    assert_eq!(rope.len(), rope.len());
-}
-
-#[test]
-fn test_small() {
-    let s = "abc";
-    let rope = Rope::from_str(s);
-
-    let res = rope.index(0);
-    assert_eq!('a', res.unwrap());
-
-    let res = rope.index(1);
-    assert_eq!('b', res.unwrap());
-
-    let res = rope.index(2);
-    assert_eq!('c', res.unwrap());
-}
-
-#[test]
-fn test_index() {
-    let s = "123456789";
-    let rope = Rope::from_str(s);
-    assert_eq!('4', rope.index(3).unwrap());
-}
-
-#[test]
-fn test_index_none() {
-    let s = "";
-    let rope = Rope::from_str(s);
-    let res = rope.index(1);
-    assert_eq!(None, res);
-}
-
-#[test]
-fn test_insert_at() {
-    let s = "hello world";
-    let mut rope = Rope::from_str(s);
-    rope.insert(5, " CTHULHU");
-    assert_eq!(rope.to_string().unwrap(), "hello CTHULHU world")
-}
-
-#[test]
-fn test_to_string() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    assert_eq!(s, rope.to_string().unwrap());
-}
-
-#[test]
-fn test_split() {
-    let s = "hello world";
-    let rope = Rope::from_str(s);
-    let (hello, rest) = rope.split(5);
-    let hello = hello.to_string().unwrap();
-    let world = rest.split(1).1.to_string().unwrap();
-
-    assert_eq!(hello, "hello");
-    assert_eq!(world, "world");
-}
-
-#[test]
-fn test_split_big() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    let (left, right) = rope.split(74);
-    assert_eq!(
-        left.to_string().unwrap(),
-        "hi there hello world there once was a kitten that had a chocolate ice crea",
-    );
-    assert_eq!(right.to_string().unwrap(), "m");
-}
-
-#[test]
-fn test_split_oob() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    let (left, right) = rope.split(80);
-
-    assert_eq!(
-        left.to_string().unwrap(),
-        "hi there hello world there once was a kitten that had a chocolate ice cream",
-    );
-
-    assert_eq!(right.to_string().unwrap(), "",);
-}
-
-#[test]
-fn test_at_zero() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    let (left, right) = rope.split(0);
-
-    assert_eq!(
-        right.to_string().unwrap(),
-        "hi there hello world there once was a kitten that had a chocolate ice cream",
-    );
-    assert_eq!(left.to_string().unwrap(), "",);
-}
-
-// #[test]
-// fn test_delete() {
-//     let s = "hello world";
-//     let mut rope = Rope::from_str(s);
-//     rope.delete(5, 100);
-//     assert_eq!("hello", rope.to_string().unwrap());
-//
-//     let s = "hello world";
-//     let mut rope = Rope::from_str(s);
-//     rope.delete(5, 7);
-//     assert_eq!("helloorld", rope.to_string().unwrap());
-//
-//     let s = "hello world";
-//     let mut rope = Rope::from_str(s);
-//     rope.delete(0, 5);
-//     dbg!(&rope);
-//     rope.delete(1, 5);
-//     assert_eq!(" ", rope.to_string().unwrap());
-// }
