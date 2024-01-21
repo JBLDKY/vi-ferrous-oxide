@@ -57,8 +57,7 @@ impl Rope {
     pub fn to_string(&self) -> Option<String> {
         // Recursively traverse the nodes and return the text of each node
         self.root
-            .as_ref()
-            .and_then(|node| Some(Self::traverse_and_collect_text(node)))
+            .as_ref().map(Self::traverse_and_collect_text)
     }
 
     fn traverse_and_collect_text(node: &RopeNode) -> String {
@@ -70,8 +69,8 @@ impl Rope {
             RopeNode::Branch(left, right, _) => {
                 format!(
                     "{}{}",
-                    &Self::traverse_and_collect_text(&left),
-                    &Self::traverse_and_collect_text(&right)
+                    &Self::traverse_and_collect_text(left),
+                    &Self::traverse_and_collect_text(right)
                 )
             }
         }
