@@ -4,7 +4,10 @@ use crossterm::event::{poll, read, Event, KeyCode, KeyEvent};
 use crossterm::{
     cursor::{DisableBlinking, MoveTo, MoveToColumn, MoveToNextLine, RestorePosition},
     execute,
-    terminal::{enable_raw_mode, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{
+        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
 };
 
 use anyhow::anyhow;
@@ -58,6 +61,8 @@ fn launch(stdout: &mut Stdout) -> Result<(), anyhow::Error> {
             }
         }
     }
+
+    disable_raw_mode()?;
     Ok(())
 }
 

@@ -15,6 +15,109 @@ struct Rope {
 }
 
 impl Rope {
+    // pub fn delete(&mut self, start_idx: usize, mut end_idx: usize) {
+    //     if end_idx <= start_idx {
+    //         return;
+    //     }
+    //
+    //     if end_idx > self.len() {
+    //         end_idx = self.len();
+    //     }
+    //
+    //     if let Some(node) = self.root.take() {
+    //         self.root = Some(Rope::delete_at_node(node, start_idx, end_idx));
+    //     }
+    // }
+
+    // fn delete_at_node(node: RopeNode, start_idx: usize, end_idx: usize) -> RopeNode {
+    //     match node {
+    //         RopeNode::Leaf(s) => {
+    //             if start_idx >= s.len() {
+    //                 RopeNode::Leaf(s)
+    //             } else {
+    //                 let new_string = [&s[..start_idx], &s[end_idx..]].concat();
+    //                 RopeNode::Leaf(new_string)
+    //             }
+    //         }
+    //
+    //         RopeNode::Branch(left, right, left_length) => {
+    //             if end_idx <= left_length {
+    //                 // Deletion starts and finishes on the left node
+    //                 let new_left = Box::new(Rope::delete_at_node(*left, start_idx, end_idx));
+    //                 RopeNode::Branch(new_left, right, left_length - (end_idx - start_idx))
+    //             } else if start_idx >= left_length {
+    //                 // Deletion doesn't start on the left node
+    //                 let new_right = Box::new(Rope::delete_at_node(
+    //                     *right,
+    //                     start_idx - left_length,
+    //                     end_idx - left_length,
+    //                 ));
+    //                 RopeNode::Branch(left, new_right, left_length)
+    //             } else {
+    //                 // Deletion range spans across left and right children
+    //                 let new_left = Box::new(Rope::delete_at_node(*left, start_idx, left_length));
+    //                 let new_right =
+    //                     Box::new(Rope::delete_at_node(*right, 0, end_idx - left_length));
+    //                 dbg!(&new_left);
+    //                 dbg!(&new_right);
+    //                 dbg!(&left_length);
+    //                 dbg!(&start_idx);
+    //                 dbg!(&end_idx);
+    //                 RopeNode::Branch(new_left, new_right, left_length - (end_idx - start_idx))
+    //             }
+    //         }
+    //     }
+    // }
+    //
+    pub fn split(self, mut idx: usize) -> (Rope, Rope) {
+        if self.len() < idx {
+            idx = self.len()
+        }
+
+        match self.root {
+            None => (Rope::new(), Rope::new()),
+            Some(node) => {
+                let (left_node, right_node) = Rope::split_at_node(node, idx);
+                (
+                    Rope {
+                        root: Some(left_node),
+                    },
+                    Rope {
+                        root: Some(right_node),
+                    },
+                )
+            }
+        }
+    }
+
+    fn split_at_node(node: RopeNode, idx: usize) -> (RopeNode, RopeNode) {
+        match node {
+            RopeNode::Leaf(s) => {
+                let (left, right) = s.split_at(idx);
+                (
+                    RopeNode::Leaf(left.to_string()),
+                    RopeNode::Leaf(right.to_string()),
+                )
+            }
+
+            RopeNode::Branch(left, right, left_length) => {
+                if idx < left_length {
+                    let (new_left, split_off) = Rope::split_at_node(*left, idx);
+                    (
+                        new_left,
+                        RopeNode::Branch(Box::new(split_off), right, left_length - idx),
+                    )
+                } else {
+                    let (split_off, new_right) = Rope::split_at_node(*right, idx - left_length);
+                    (
+                        RopeNode::Branch(left, Box::new(split_off), left_length),
+                        new_right,
+                    )
+                }
+            }
+        }
+    }
+
     /// Returns an empty rope
     pub fn new() -> Self {
         Rope { root: None }
@@ -56,8 +159,7 @@ impl Rope {
     /// Get the string representation of the rope
     pub fn to_string(&self) -> Option<String> {
         // Recursively traverse the nodes and return the text of each node
-        self.root
-            .as_ref().map(Self::traverse_and_collect_text)
+        self.root.as_ref().map(Self::traverse_and_collect_text)
     }
 
     fn traverse_and_collect_text(node: &RopeNode) -> String {
@@ -201,3 +303,75 @@ fn test_to_string() {
     let rope = Rope::from_str(s);
     assert_eq!(s, rope.to_string().unwrap());
 }
+
+#[test]
+fn test_split() {
+    let s = "hello world";
+    let rope = Rope::from_str(s);
+    let (hello, rest) = rope.split(5);
+    let hello = hello.to_string().unwrap();
+    let world = rest.split(1).1.to_string().unwrap();
+
+    assert_eq!(hello, "hello");
+    assert_eq!(world, "world");
+}
+
+#[test]
+fn test_split_big() {
+    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
+    let rope = Rope::from_str(s);
+    let (left, right) = rope.split(74);
+    assert_eq!(
+        left.to_string().unwrap(),
+        "hi there hello world there once was a kitten that had a chocolate ice crea",
+    );
+    assert_eq!(right.to_string().unwrap(), "m");
+}
+
+#[test]
+fn test_split_oob() {
+    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
+    let rope = Rope::from_str(s);
+    let (left, right) = rope.split(80);
+
+    assert_eq!(
+        left.to_string().unwrap(),
+        "hi there hello world there once was a kitten that had a chocolate ice cream",
+    );
+
+    assert_eq!(right.to_string().unwrap(), "",);
+}
+
+#[test]
+fn test_at_zero() {
+    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
+    let rope = Rope::from_str(s);
+    let (left, right) = rope.split(0);
+
+    assert_eq!(
+        right.to_string().unwrap(),
+        "hi there hello world there once was a kitten that had a chocolate ice cream",
+    );
+
+    assert_eq!(left.to_string().unwrap(), "",);
+}
+
+// #[test]
+// fn test_delete() {
+// let s = "hello world";
+// let mut rope = Rope::from_str(s);
+// rope.delete(5, 100);
+// assert_eq!("hello", rope.to_string().unwrap());
+//
+// let s = "hello world";
+// let mut rope = Rope::from_str(s);
+// rope.delete(5, 7);
+// assert_eq!("helloorld", rope.to_string().unwrap());
+
+//     let s = "hello world";
+//     let mut rope = Rope::from_str(s);
+//     rope.delete(0, 5);
+//     dbg!(&rope);
+//     rope.delete(1, 5);
+//     assert_eq!(" ", rope.to_string().unwrap());
+// }
