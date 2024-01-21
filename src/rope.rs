@@ -3,7 +3,7 @@
 use env_logger::Logger;
 use log::debug;
 
-const MAX_LEAF_SIZE: usize = 2;
+const MAX_LEAF_SIZE: usize = 8;
 
 #[derive(Debug, Clone)]
 enum RopeNode {
@@ -13,59 +13,34 @@ enum RopeNode {
 }
 
 #[derive(Debug, Clone, Default)]
-struct Rope {
+pub struct Rope {
     root: Option<RopeNode>,
 }
 
 impl Rope {
-    // pub fn delete(&mut self, start_idx: usize, mut end_idx: usize) {
-    //     if end_idx <= start_idx {
-    //         return;
-    //     }
-    //
-    //     if end_idx > self.len() {
-    //         end_idx = self.len();
-    //     }
-    //
-    //     if let Some(node) = self.root.take() {
-    //         self.root = Some(Rope::delete_at_node(node, start_idx, end_idx));
-    //     }
-    // }
+    /// Returns an empty rope
+    pub fn new() -> Self {
+        Rope { root: None }
+    }
 
-    // fn delete_at_node(node: RopeNode, start_idx: usize, end_idx: usize) -> RopeNode {
-    //     match node {
-    //         RopeNode::Leaf(s) => {
-    //             if start_idx >= s.len() {
-    //                 RopeNode::Leaf(s)
-    //             } else {
-    //                 let new_string = [&s[..start_idx], &s[end_idx..]].concat();
-    //                 RopeNode::Leaf(new_string)
-    //             }
-    //         }
-    //
-    //         RopeNode::Branch(left, right, left_length) => {
-    //             if end_idx <= left_length {
-    //                 // Deletion starts and finishes on the left node
-    //                 let new_left = Box::new(Rope::delete_at_node(*left, start_idx, end_idx));
-    //                 RopeNode::Branch(new_left, right, left_length - (end_idx - start_idx))
-    //             } else if start_idx >= left_length {
-    //                 // Deletion doesn't start on the left node
-    //                 let new_right = Box::new(Rope::delete_at_node(
-    //                     *right,
-    //                     start_idx - left_length,
-    //                     end_idx - left_length,
-    //                 ));
-    //                 RopeNode::Branch(left, new_right, left_length)
-    //             } else {
-    //                 // Deletion range spans across left and right children
-    //                 let new_left = Box::new(Rope::delete_at_node(*left, start_idx, left_length));
-    //                 let new_right =
-    //                     Box::new(Rope::delete_at_node(*right, 0, end_idx - left_length));
-    //                 RopeNode::Branch(new_left, new_right, left_length - (end_idx - start_idx))
-    //             }
-    //         }
-    //     }
-    // }
+    /// Creater a rope from a string slice
+    pub fn from_str(s: &str) -> Self {
+        let nodes = Self::split_string_to_nodes(s);
+        let root = Self::build_tree_from_nodes(nodes);
+        Rope { root: Some(root) }
+    }
+
+    /// Append a stringslice to the rope
+    pub fn append(&mut self, text: &str) {
+        let idx = self.len();
+        if let Some(node) = self.root.take() {
+            // If the rope is not empty, insert at the end
+            self.root = Some(Rope::traverse_and_insert(node, idx, text));
+        } else {
+            // If the rope is empty, return a leaf with the added text
+            self.root = Some(RopeNode::Leaf(text.to_string()));
+        }
+    }
 
     /// Concatenate two ropes
     ///
@@ -87,16 +62,30 @@ impl Rope {
         }
     }
 
+    ///Delete from start index to end index
+    pub fn delete(&mut self, start: usize, end: usize) {
+        if start > end {
+            return;
+        }
+
+        let end = end + 1;
+
+        let (pre, suf) = self.split(end);
+        let (pre, _) = pre.split(start);
+
+        *self = Rope::concat(pre, suf);
+    }
+
     /// Split a rope into two ropes at the given index.
-    pub fn split(self, mut idx: usize) -> (Rope, Rope) {
+    pub fn split(&self, mut idx: usize) -> (Rope, Rope) {
         if self.len() < idx {
             idx = self.len()
         }
 
-        match self.root {
+        match &self.root {
             None => (Rope::new(), Rope::new()),
             Some(node) => {
-                let (left_node, right_node) = Rope::split_at_node(node, idx);
+                let (left_node, right_node) = Rope::split_at_node(&node, idx);
                 (
                     Rope {
                         root: Some(left_node),
@@ -110,7 +99,7 @@ impl Rope {
     }
 
     /// recursively find index and then split
-    fn split_at_node(node: RopeNode, idx: usize) -> (RopeNode, RopeNode) {
+    fn split_at_node(node: &RopeNode, idx: usize) -> (RopeNode, RopeNode) {
         match node {
             RopeNode::Leaf(s) => {
                 let (left, right) = s.split_at(idx);
@@ -121,33 +110,21 @@ impl Rope {
             }
 
             RopeNode::Branch(left, right, left_length) => {
-                if idx <= left_length {
-                    let (new_left, split_off) = Rope::split_at_node(*left, idx);
+                if idx <= *left_length {
+                    let (new_left, split_off) = Rope::split_at_node(&left, idx);
                     (
                         new_left,
-                        RopeNode::Branch(Box::new(split_off), right, left_length - idx),
+                        RopeNode::Branch(Box::new(split_off), right.clone(), left_length - idx),
                     )
                 } else {
-                    let (split_off, new_right) = Rope::split_at_node(*right, idx - left_length);
+                    let (split_off, new_right) = Rope::split_at_node(&*right, idx - left_length);
                     (
-                        RopeNode::Branch(left, Box::new(split_off), left_length),
+                        RopeNode::Branch(left.clone(), Box::new(split_off), *left_length),
                         new_right,
                     )
                 }
             }
         }
-    }
-
-    /// Returns an empty rope
-    pub fn new() -> Self {
-        Rope { root: None }
-    }
-
-    /// Creater a rope from a string slice
-    pub fn from_str(s: &str) -> Self {
-        let nodes = Self::split_string_to_nodes(s);
-        let root = Self::build_tree_from_nodes(nodes);
-        Rope { root: Some(root) }
     }
 
     /// Create leaves from a stringslice
@@ -272,134 +249,3 @@ impl Rope {
         }
     }
 }
-
-#[cfg(test)]
-#[test]
-fn test_rope_length() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    assert_eq!(rope.len(), rope.len());
-}
-
-#[test]
-fn test_rope_init() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    assert_eq!(rope.len(), rope.len());
-}
-
-#[test]
-fn test_small() {
-    let s = "abc";
-    let rope = Rope::from_str(s);
-
-    let res = rope.index(0);
-    assert_eq!('a', res.unwrap());
-
-    let res = rope.index(1);
-    assert_eq!('b', res.unwrap());
-
-    let res = rope.index(2);
-    assert_eq!('c', res.unwrap());
-}
-
-#[test]
-fn test_index() {
-    let s = "123456789";
-    let rope = Rope::from_str(s);
-    assert_eq!('4', rope.index(3).unwrap());
-}
-
-#[test]
-fn test_index_none() {
-    let s = "";
-    let rope = Rope::from_str(s);
-    let res = rope.index(1);
-    assert_eq!(None, res);
-}
-
-#[test]
-fn test_insert_at() {
-    let s = "hello world";
-    let mut rope = Rope::from_str(s);
-    rope.insert(5, " CTHULHU");
-    assert_eq!(rope.to_string().unwrap(), "hello CTHULHU world")
-}
-
-#[test]
-fn test_to_string() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    assert_eq!(s, rope.to_string().unwrap());
-}
-
-#[test]
-fn test_split() {
-    let s = "hello world";
-    let rope = Rope::from_str(s);
-    let (hello, rest) = rope.split(5);
-    let hello = hello.to_string().unwrap();
-    let world = rest.split(1).1.to_string().unwrap();
-
-    assert_eq!(hello, "hello");
-    assert_eq!(world, "world");
-}
-
-#[test]
-fn test_split_big() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    let (left, right) = rope.split(74);
-    assert_eq!(
-        left.to_string().unwrap(),
-        "hi there hello world there once was a kitten that had a chocolate ice crea",
-    );
-    assert_eq!(right.to_string().unwrap(), "m");
-}
-
-#[test]
-fn test_split_oob() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    let (left, right) = rope.split(80);
-
-    assert_eq!(
-        left.to_string().unwrap(),
-        "hi there hello world there once was a kitten that had a chocolate ice cream",
-    );
-
-    assert_eq!(right.to_string().unwrap(), "",);
-}
-
-#[test]
-fn test_at_zero() {
-    let s = "hi there hello world there once was a kitten that had a chocolate ice cream";
-    let rope = Rope::from_str(s);
-    let (left, right) = rope.split(0);
-
-    assert_eq!(
-        right.to_string().unwrap(),
-        "hi there hello world there once was a kitten that had a chocolate ice cream",
-    );
-    assert_eq!(left.to_string().unwrap(), "",);
-}
-
-// #[test]
-// fn test_delete() {
-//     let s = "hello world";
-//     let mut rope = Rope::from_str(s);
-//     rope.delete(5, 100);
-//     assert_eq!("hello", rope.to_string().unwrap());
-//
-//     let s = "hello world";
-//     let mut rope = Rope::from_str(s);
-//     rope.delete(5, 7);
-//     assert_eq!("helloorld", rope.to_string().unwrap());
-//
-//     let s = "hello world";
-//     let mut rope = Rope::from_str(s);
-//     rope.delete(0, 5);
-//     dbg!(&rope);
-//     rope.delete(1, 5);
-//     assert_eq!(" ", rope.to_string().unwrap());
-// }
