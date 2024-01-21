@@ -2,7 +2,7 @@
 mod rope;
 use crossterm::event::{poll, read, Event, KeyCode, KeyEvent};
 use crossterm::{
-    cursor::{DisableBlinking, MoveTo, MoveToNextLine},
+    cursor::{DisableBlinking, MoveTo, MoveToColumn, MoveToNextLine, RestorePosition},
     execute,
     terminal::{enable_raw_mode, Clear, ClearType, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -10,13 +10,22 @@ use crossterm::{
 use anyhow::anyhow;
 use std::time::Duration;
 
-use std::io::{stdout, Write};
+use std::io::{stdout, Stdout, Write};
 
-fn launch() -> Result<(), anyhow::Error> {
+#[inline]
+fn refresh(stdout: &mut Stdout, text: &Vec<char>) {
+    execute!(stdout, Clear(ClearType::All), MoveTo(0, 0)).ok();
+
+    for char in text {
+        print!("{}", char);
+    }
+
+    let _ = stdout.flush();
+}
+
+fn launch(stdout: &mut Stdout) -> Result<(), anyhow::Error> {
     enable_raw_mode()?;
     let mut text: Vec<char> = vec![];
-
-    let mut stdout = stdout();
 
     loop {
         if poll(Duration::from_millis(100))? {
@@ -24,33 +33,26 @@ fn launch() -> Result<(), anyhow::Error> {
                 match code {
                     KeyCode::Char(c) => {
                         text.push(c);
-
-                        // Clear the screen before re-rendering
-                        execute!(stdout, Clear(ClearType::All), MoveTo(0, 0))?;
-                        for char in &text {
-                            print!("{}", char);
-                        }
-
-                        stdout.flush()?;
+                        refresh(stdout, &text);
                     }
 
                     KeyCode::Enter => {
-                        // This is fucked up
                         text.push('\n');
-                        execute!(stdout, MoveToNextLine(0))?;
+                        execute!(stdout, MoveToNextLine(1))?;
+                        refresh(stdout, &text);
+                    }
+
+                    KeyCode::Tab => {
+                        dbg!(&text);
                     }
 
                     KeyCode::Backspace => {
                         text.pop();
-
-                        execute!(stdout, Clear(ClearType::All), MoveTo(0, 0))?;
-                        for char in &text {
-                            print!("{}", char);
-                        }
-
-                        stdout.flush()?;
+                        refresh(stdout, &text);
                     }
+
                     KeyCode::Esc => break,
+
                     _ => (),
                 }
             }
@@ -60,15 +62,16 @@ fn launch() -> Result<(), anyhow::Error> {
 }
 
 fn main() -> Result<(), std::io::Error> {
+    let mut stdout = stdout();
     execute!(
-        stdout(),
+        stdout,
         DisableBlinking,
         MoveTo(0, 0),
         Clear(ClearType::All),
         EnterAlternateScreen
     )?;
 
-    let _ = launch();
+    let _ = launch(&mut stdout);
 
-    execute!(stdout(), LeaveAlternateScreen)
+    execute!(stdout, LeaveAlternateScreen)
 }
