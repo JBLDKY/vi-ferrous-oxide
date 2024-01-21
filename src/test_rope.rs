@@ -124,16 +124,16 @@ pub mod tests {
     #[test]
     fn test_delete_oob() {
         let s = "hello world";
-        let rope = Rope::from_str(s);
-        let rope = rope.delete(5, 200);
+        let mut rope = Rope::from_str(s);
+        rope.delete(5, 200);
         assert_eq!("hello", rope.to_string().unwrap());
     }
 
     #[test]
     fn test_delete_single() {
         let s = "hello";
-        let rope = Rope::from_str(s);
-        let rope = rope.delete(0, 0);
+        let mut rope = Rope::from_str(s);
+        rope.delete(0, 0);
         assert_eq!("ello", rope.to_string().unwrap());
     }
 
@@ -141,18 +141,18 @@ pub mod tests {
     fn test_delete() {
         let s = "hello world";
         let mut rope = Rope::from_str(s);
-        rope = rope.delete(5, 100);
+        rope.delete(5, 100);
         assert_eq!("hello", rope.to_string().unwrap());
 
         let s = "hello world";
         let mut rope = Rope::from_str(s);
-        rope = rope.delete(5, 6);
+        rope.delete(5, 6);
         assert_eq!("helloorld", rope.to_string().unwrap());
 
         let s = "hello world";
         let mut rope = Rope::from_str(s);
-        rope = rope.delete(0, 4);
-        rope = rope.delete(1, 6);
+        rope.delete(0, 4);
+        rope.delete(1, 6);
         assert_eq!(" ", rope.to_string().unwrap());
     }
 
@@ -160,7 +160,7 @@ pub mod tests {
     fn append_to_empty_rope() {
         let mut rope = Rope::new();
         let appended_text = "Hello";
-        rope = rope.append(appended_text);
+        rope.append(appended_text);
 
         assert_eq!(rope.to_string().unwrap(), "Hello");
     }
@@ -169,7 +169,7 @@ pub mod tests {
     fn append_to_non_empty_rope() {
         let mut rope = Rope::from_str("Hello");
         let appended_text = ", world!";
-        rope = rope.append(appended_text);
+        rope.append(appended_text);
 
         assert_eq!(rope.to_string().unwrap(), "Hello, world!");
     }
@@ -177,7 +177,7 @@ pub mod tests {
     #[test]
     fn append_empty_string() {
         let mut rope = Rope::from_str("Hello");
-        rope = rope.append("");
+        rope.append("");
 
         assert_eq!(rope.to_string().unwrap(), "Hello");
     }

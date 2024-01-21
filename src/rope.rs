@@ -3,7 +3,7 @@
 use env_logger::Logger;
 use log::debug;
 
-const MAX_LEAF_SIZE: usize = 2;
+const MAX_LEAF_SIZE: usize = 8;
 
 #[derive(Debug, Clone)]
 enum RopeNode {
@@ -18,9 +18,28 @@ pub struct Rope {
 }
 
 impl Rope {
-    pub fn append(&mut self, text: &str) -> Self {
-        let new_rope = Rope::from_str(text);
-        Rope::concat(self.clone(), new_rope)
+    /// Returns an empty rope
+    pub fn new() -> Self {
+        Rope { root: None }
+    }
+
+    /// Creater a rope from a string slice
+    pub fn from_str(s: &str) -> Self {
+        let nodes = Self::split_string_to_nodes(s);
+        let root = Self::build_tree_from_nodes(nodes);
+        Rope { root: Some(root) }
+    }
+
+    /// Append a stringslice to the rope
+    pub fn append(&mut self, text: &str) {
+        let idx = self.len();
+        if let Some(node) = self.root.take() {
+            // If the rope is not empty, insert at the end
+            self.root = Some(Rope::traverse_and_insert(node, idx, text));
+        } else {
+            // If the rope is empty, return a leaf with the added text
+            self.root = Some(RopeNode::Leaf(text.to_string()));
+        }
     }
 
     /// Concatenate two ropes
@@ -43,9 +62,10 @@ impl Rope {
         }
     }
 
-    pub fn delete(self, start: usize, end: usize) -> Rope {
+    ///Delete from start index to end index
+    pub fn delete(&mut self, start: usize, end: usize) {
         if start > end {
-            return self;
+            return;
         }
 
         let end = end + 1;
@@ -53,19 +73,19 @@ impl Rope {
         let (pre, suf) = self.split(end);
         let (pre, _) = pre.split(start);
 
-        Rope::concat(pre, suf)
+        *self = Rope::concat(pre, suf);
     }
 
     /// Split a rope into two ropes at the given index.
-    pub fn split(self, mut idx: usize) -> (Rope, Rope) {
+    pub fn split(&self, mut idx: usize) -> (Rope, Rope) {
         if self.len() < idx {
             idx = self.len()
         }
 
-        match self.root {
+        match &self.root {
             None => (Rope::new(), Rope::new()),
             Some(node) => {
-                let (left_node, right_node) = Rope::split_at_node(node, idx);
+                let (left_node, right_node) = Rope::split_at_node(&node, idx);
                 (
                     Rope {
                         root: Some(left_node),
@@ -79,7 +99,7 @@ impl Rope {
     }
 
     /// recursively find index and then split
-    fn split_at_node(node: RopeNode, idx: usize) -> (RopeNode, RopeNode) {
+    fn split_at_node(node: &RopeNode, idx: usize) -> (RopeNode, RopeNode) {
         match node {
             RopeNode::Leaf(s) => {
                 let (left, right) = s.split_at(idx);
@@ -90,33 +110,21 @@ impl Rope {
             }
 
             RopeNode::Branch(left, right, left_length) => {
-                if idx <= left_length {
-                    let (new_left, split_off) = Rope::split_at_node(*left, idx);
+                if idx <= *left_length {
+                    let (new_left, split_off) = Rope::split_at_node(&left, idx);
                     (
                         new_left,
-                        RopeNode::Branch(Box::new(split_off), right, left_length - idx),
+                        RopeNode::Branch(Box::new(split_off), right.clone(), left_length - idx),
                     )
                 } else {
-                    let (split_off, new_right) = Rope::split_at_node(*right, idx - left_length);
+                    let (split_off, new_right) = Rope::split_at_node(&*right, idx - left_length);
                     (
-                        RopeNode::Branch(left, Box::new(split_off), left_length),
+                        RopeNode::Branch(left.clone(), Box::new(split_off), *left_length),
                         new_right,
                     )
                 }
             }
         }
-    }
-
-    /// Returns an empty rope
-    pub fn new() -> Self {
-        Rope { root: None }
-    }
-
-    /// Creater a rope from a string slice
-    pub fn from_str(s: &str) -> Self {
-        let nodes = Self::split_string_to_nodes(s);
-        let root = Self::build_tree_from_nodes(nodes);
-        Rope { root: Some(root) }
     }
 
     /// Create leaves from a stringslice
