@@ -3,14 +3,44 @@ pub mod tests {
     use crate::Rope;
 
     #[test]
-    fn test_line_traversal() {
-        let s = "line 0\n line 1\n line 2\n line 3\n line 4\n line 5\n";
+    fn test_empty_iterator() {
+        // Just testing if this doesn't panic
+        let rope = Rope::new();
+
+        for char in rope.iter() {
+            dbg!(char);
+        }
+    }
+
+    #[test]
+    fn test_get_line() {
+        let s = "line 1\n line 2\n line 3\n line 4\n line 5\n line 6\n";
         let rope = Rope::from_str(s);
 
-        pub fn traverse_with_line_numbers(rope: Rope) {
-            dbg!(rope);
-        }
-        traverse_with_line_numbers(rope);
+        let res = rope.line(3);
+        let expected = vec![' ', 'l', 'i', 'n', 'e', ' ', '3', '\n'];
+
+        assert_eq!(res, expected);
+    }
+
+    #[test]
+    fn test_line_count() {
+        let s = "line 1\n line 2\n line 3\n line 4\n line 5\n line 6\n";
+        let rope = Rope::from_str(s);
+
+        assert_eq!(rope.line_count(), 7);
+    }
+
+    #[test]
+    fn test_iterator() {
+        let s = "line 1\n line 2\n line 3\n line 4\n line 5\n line 6\n";
+        let rope = Rope::from_str(s);
+
+        rope.iter()
+            .zip(s.chars())
+            .for_each(|(rope_char, string_char)| {
+                assert_eq!(rope_char, string_char);
+            });
     }
 
     #[test]

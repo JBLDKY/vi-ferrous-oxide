@@ -1,12 +1,13 @@
 #![allow(dead_code)]
 
+use crate::rope::iterator::RopeIterator;
 use env_logger::Logger;
 use log::debug;
 
 const MAX_LEAF_SIZE: usize = 8;
 
 #[derive(Debug, Clone)]
-enum RopeNode {
+pub enum RopeNode {
     Leaf(String),
     // Left, Right, Length of the sum of left subnode strings.
     Branch(Box<RopeNode>, Box<RopeNode>, usize),
@@ -18,6 +19,55 @@ pub struct Rope {
 }
 
 impl Rope {
+    pub fn line(&self, n: usize) -> Vec<char> {
+        let mut current = 1;
+        let mut line_found = false;
+
+        let mut line: Vec<char> = vec![];
+
+        for char in self.iter() {
+            // Arrived at line 'n'
+            if !line_found && n == current {
+                line_found = true;
+            }
+
+            // Arrived at the next line (indicated by '\n')
+            if char == '\n' {
+                current += 1
+            }
+
+            // If we have arrived at line n
+            if line_found {
+                // save the current character
+                line.push(char);
+                if char == '\n' {
+                    // and stop if we hit a newline
+                    break;
+                }
+            }
+        }
+        line
+    }
+
+    pub fn line_count(&self) -> usize {
+        self.iter().filter(|&char| char == '\n').count() + 1
+    }
+
+    pub fn iter(&self) -> RopeIterator {
+        if let Some(node) = &self.root {
+            RopeIterator {
+                nodes: vec![&node],
+                leaf_pos: 0,
+                current_leaf: None,
+            }
+        } else {
+            RopeIterator {
+                nodes: vec![],
+                leaf_pos: 0,
+                current_leaf: None,
+            }
+        }
+    }
     /// Returns an empty rope
     pub fn new() -> Self {
         Rope { root: None }

@@ -1,12 +1,13 @@
 #![allow(unused_imports)]
 #![feature(iter_collect_into)]
+use simplelog::*;
 mod rope;
 use crossterm::event::{poll, read, Event, KeyCode, KeyEvent};
 use crossterm::style::{self, style, Attribute, Color, Print, PrintStyledContent, Stylize};
 use crossterm::{
     cursor::{
-        DisableBlinking, MoveDown, MoveLeft, MoveRight, MoveTo, MoveToColumn, MoveToNextLine,
-        MoveToPreviousLine, MoveUp, RestorePosition, SavePosition,
+        position, DisableBlinking, MoveDown, MoveLeft, MoveRight, MoveTo, MoveToColumn,
+        MoveToNextLine, MoveToPreviousLine, MoveUp, RestorePosition, SavePosition,
     },
     execute,
     terminal::{
@@ -15,6 +16,7 @@ use crossterm::{
     },
 };
 use rope::base::Rope;
+use std::cmp::{max, min};
 use std::env;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -59,6 +61,8 @@ fn launch(
 
     refresh(stdout, &mut text);
 
+    let mut hidden_x: u16 = 0;
+
     loop {
         if poll(Duration::from_millis(100))? {
             if let Ok(Event::Key(KeyEvent { code, .. })) = read() {
@@ -76,16 +80,45 @@ fn launch(
                     }
 
                     KeyCode::Up => {
-                        execute!(stdout, MoveUp(1)).ok();
+                        let (x, y) = position()?; // in this case, y is the target line
+                        if y == 0 {
+                            // at the top of the file, don't do anything
+                            continue;
+                        }
+                        let mut max_x = text.line(y.into()).len(); // need to save this for later
+
+                        // set horizontal limit
+                        if max_x > 0 {
+                            max_x -= 1
+                        }
+
+                        // Don't go beyond the end of the line
+                        let mut target_x = max(0, min(x, max_x.try_into().unwrap()));
+                        let target_y = max(1, y) - 1;
+
+                        if usize::from(x) > text.line(target_y.into()).len() {
+                            hidden_x = x
+                        }
+
+                        if usize::from(hidden_x) >= target_x.into() {
+                            target_x = min(hidden_x, max_x.try_into().unwrap());
+                        }
+
+                        execute!(stdout, MoveTo(target_x.try_into().unwrap(), target_y)).ok();
+                        // will crash after 65k lines
                     }
                     KeyCode::Down => {
                         execute!(stdout, MoveDown(1)).ok();
                     }
                     KeyCode::Left => {
                         execute!(stdout, MoveLeft(1)).ok();
+                        let (x, y) = position()?; // in this case, y is the target line
+                        hidden_x = x;
                     }
                     KeyCode::Right => {
                         execute!(stdout, MoveRight(1)).ok();
+                        let (x, y) = position()?; // in this case, y is the target line
+                        hidden_x = x;
                     }
 
                     KeyCode::Esc => {
@@ -117,6 +150,11 @@ fn launch(
 }
 
 fn main() -> Result<(), std::io::Error> {
+    let log_file = File::create("debug.log").unwrap();
+    WriteLogger::init(LevelFilter::Debug, Config::default(), log_file).unwrap();
+
+    log::debug!("starting session");
+
     let mut stdout = stdout();
 
     execute!(
