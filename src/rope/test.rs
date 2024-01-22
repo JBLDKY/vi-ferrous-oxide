@@ -1,6 +1,17 @@
 #[cfg(test)]
 pub mod tests {
-    use crate::rope::Rope;
+    use crate::Rope;
+
+    #[test]
+    fn test_line_traversal() {
+        let s = "line 0\n line 1\n line 2\n line 3\n line 4\n line 5\n";
+        let rope = Rope::from_str(s);
+
+        pub fn traverse_with_line_numbers(rope: Rope) {
+            dbg!(rope);
+        }
+        traverse_with_line_numbers(rope);
+    }
 
     #[test]
     fn test_concat() {

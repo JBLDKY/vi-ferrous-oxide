@@ -1,12 +1,12 @@
 #![allow(unused_imports)]
 #![feature(iter_collect_into)]
 mod rope;
-use crossterm::cursor::MoveToPreviousLine;
 use crossterm::event::{poll, read, Event, KeyCode, KeyEvent};
 use crossterm::style::{self, style, Attribute, Color, Print, PrintStyledContent, Stylize};
 use crossterm::{
     cursor::{
-        DisableBlinking, MoveTo, MoveToColumn, MoveToNextLine, RestorePosition, SavePosition,
+        DisableBlinking, MoveDown, MoveLeft, MoveRight, MoveTo, MoveToColumn, MoveToNextLine,
+        MoveToPreviousLine, MoveUp, RestorePosition, SavePosition,
     },
     execute,
     terminal::{
@@ -14,7 +14,7 @@ use crossterm::{
         LeaveAlternateScreen, SetTitle,
     },
 };
-use rope::Rope;
+use rope::base::Rope;
 use std::env;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -23,9 +23,6 @@ use anyhow::anyhow;
 use std::time::Duration;
 
 use std::io::{stdout, Read, Stdout, Write};
-
-#[cfg(test)]
-mod test_rope;
 
 #[inline]
 fn refresh(stdout: &mut Stdout, text: &mut Rope) {
@@ -37,7 +34,7 @@ fn refresh(stdout: &mut Stdout, text: &mut Rope) {
             continue;
         };
 
-        execute!(stdout, Print(&char));
+        execute!(stdout, Print(&char)).ok();
     }
 
     let _ = stdout.flush();
@@ -76,6 +73,19 @@ fn launch(
                     KeyCode::Enter => {
                         text.append("\n");
                         refresh(stdout, &mut text);
+                    }
+
+                    KeyCode::Up => {
+                        execute!(stdout, MoveUp(1)).ok();
+                    }
+                    KeyCode::Down => {
+                        execute!(stdout, MoveDown(1)).ok();
+                    }
+                    KeyCode::Left => {
+                        execute!(stdout, MoveLeft(1)).ok();
+                    }
+                    KeyCode::Right => {
+                        execute!(stdout, MoveRight(1)).ok();
                     }
 
                     KeyCode::Esc => {
